@@ -5,13 +5,16 @@ import (
 	"time"
 	"os"
 
+	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/stopwatch"
-	// "github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 // model
 type model struct {
+	keymap   keymap
+	help     help.Model
 	focus    stopwatch.Model
 	// rest     stopwatch.Model
 	// focusing bool
@@ -19,16 +22,56 @@ type model struct {
 	// todo     []string
 }	
 
-// Update
+// keymap
+type keymap struct {
+	start key.Binding
+	stop  key.Binding
+	reset key.Binding
+	quit  key.Binding
+}
 
+// initialModel
+
+func initialModel() model {
+	keymap := keymap{
+		start: key.NewBinding(
+			key.WithKeys("s"),
+			key.WithHelp("s", "start"),
+		),
+		stop: key.NewBinding(
+			key.WithKeys("s"),
+			key.WithHelp("s", "stop"),
+		),
+		reset: key.NewBinding(
+			key.WithKeys("r"),
+			key.WithHelp("r", "reset"),
+		),
+		quit: key.NewBinding(
+			key.WithKeys("q", "ctrl+c"),
+			key.WithHelp("q", "quit"),
+		),
+	}
+
+	keymap.start.SetEnabled(false)
+
+	m := model{
+		keymap: keymap,
+		help: help.New(),
+		focus: stopwatch.NewWithInterval(time.Millisecond),
+	}
+	return m
+}
+		
+
+// Update
 func (m model) Update(msg tea.Msg) (tea.Model,tea.Cmd) {
 
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.Type {
-			case tea.KeyCtrlC, tea.KeyEsc:
+		switch {
+			case key.Matches(msg, m.keymap.quit): 
 				return m, tea.Quit
 		}
 	}
@@ -49,11 +92,7 @@ func (m model) Init() tea.Cmd {
 }
 
 func main() {
-	m := model{
-		focus: stopwatch.NewWithInterval(time.Millisecond),
-	}
-
-	if _, err := tea.NewProgram(m).Run(); err != nil {
+	if _, err := tea.NewProgram(initialModel()).Run(); err != nil {
 		fmt.Println("It didn't work: ", err)
 		os.Exit(1)
 	}
