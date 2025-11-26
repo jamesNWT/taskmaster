@@ -24,6 +24,7 @@ type model struct {
 
 // keymap
 type keymap struct {
+	firstStart key.Binding
 	switchMode key.Binding
 	quit  key.Binding
 }
@@ -32,6 +33,10 @@ type keymap struct {
 
 func initialModel() model {
 	keymap := keymap{
+		firstStart: key.NewBinding(
+			key.WithKeys(" "),
+			key.WithHelp(" ", "start"),
+		),
 		switchMode: key.NewBinding(
 			key.WithKeys(" "),
 			key.WithHelp(" ", "switchMode"),
@@ -42,11 +47,13 @@ func initialModel() model {
 		),
 	}
 
+	keymap.switchMode.SetEnabled(false)
+
 	m := model{
 		keymap: keymap,
 		help: help.New(),
 		focus: stopwatch.NewWithInterval(time.Millisecond),
-		// rest: stopwatch.New(),
+		rest: stopwatch.NewWithInterval(time.Millisecond),
 	}
 	
 	return m
@@ -56,28 +63,28 @@ func initialModel() model {
 // Update
 func (m model) Update(msg tea.Msg) (tea.Model,tea.Cmd) {
 
-	var cmd tea.Cmd
-
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
 			case key.Matches(msg, m.keymap.quit): 
 				m.quiting = true
 				return m, tea.Quit
+			case key.Matches(msg, m.keymap.firstStart):
+				m.keymap.firstStart.SetEnabled(false)
+				m.keymap.switchMode.SetEnabled(true)
+				return m, m.focus.Start()
 			case key.Matches(msg, m.keymap.switchMode):
-				return m, m.switchMode
+				restCmd := m.rest.Toggle()
+				focusCmd := m.focus.Toggle()
+				return m, tea.Batch(restCmd, focusCmd)
 		}
 	}
-	m.focus, cmd = m.focus.Update(msg)
-	return m, cmd
+	var focusCmd, restCmd tea.Cmd
+	m.focus, focusCmd = m.focus.Update(msg)
+	m.rest, restCmd = m.rest.Update(msg)
+	return m, tea.Batch(focusCmd, restCmd)
 }
 
-func (m model) switchMode() tea.Msg {
-	m.focus.Toggle()
-	m.rest.Toggle()
-	return struct{}{}
-}
-	
 // View
 func (m model) View() string {
 	s := fmt.Sprintf("Focus time: %s\n", m.focus.View())
