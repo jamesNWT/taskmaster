@@ -241,6 +241,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else { 
 			m, keyCmd = m.handleNormalMode(msg)
 		}
+	case tea.WindowSizeMsg:
+		return m, tea.ClearScreen
 	}
 
 	var focusCmd, restCmd tea.Cmd 
