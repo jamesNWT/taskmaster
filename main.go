@@ -15,17 +15,18 @@ import (
 
 // model
 type model struct {
-	keymap   keymap
-	help     help.Model
-	focus    stopwatch.Model
-	rest     stopwatch.Model
-	writing  bool
-	editing  bool
-	quiting  bool
-	todos    []string
-	stricken map[int]struct{}
-	cursor   int
+	keymap    keymap
+	help      help.Model
+	focus     stopwatch.Model
+	rest      stopwatch.Model
+	writing   bool
+	editing   bool
+	quiting   bool
+	todos     []string
+	stricken  map[int]struct{}
+	cursor    int
 	textInput textinput.Model
+	altScreen bool
 }	
 
 /*
@@ -60,7 +61,7 @@ type keymap struct {
 	quit             key.Binding
 	up               key.Binding
 	down             key.Binding
-	toggleFullScreen key.Binding
+	toggleAltScreen  key.Binding
 	help             key.Binding
 }
 
@@ -96,7 +97,7 @@ func initialModel() model {
 			key.WithKeys("q", "ctrl+c"),
 			key.WithHelp("q", "quit"),
 		),
-		toggleFullScreen: key.NewBinding(
+		toggleAltScreen: key.NewBinding(
 			key.WithKeys("f"),
 			key.WithHelp("f", "fullscreen"),
 		),
@@ -184,7 +185,8 @@ func (m model) handleNormalMode(msg tea.KeyMsg) (model, tea.Cmd) {
 		if len(m.todos) > 0 {
 			m.todos = append(m.todos[:m.cursor], m.todos[m.cursor+1:]...)
 			
-			// all the keys for the strike map > cursor need to be lessed by one
+			// All of the keys greater than the cursor in stricken must be
+			// decremented by 1
 			updatedStricken := make(map[int]struct{})
 			for k, v := range(m.stricken) {
 				if k < m.cursor {
@@ -206,6 +208,14 @@ func (m model) handleNormalMode(msg tea.KeyMsg) (model, tea.Cmd) {
 			delete(m.stricken, m.cursor)
 		} else {
 			m.stricken[m.cursor] = struct{}{}
+		}
+	case key.Matches(msg, m.keymap.toggleAltScreen):
+		if m.altScreen {
+			m.altScreen = false
+			return m, tea.ExitAltScreen
+		} else {
+			m.altScreen = true
+			return m, tea.EnterAltScreen
 		}
 	}
 
