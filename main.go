@@ -20,6 +20,7 @@ type model struct {
 	focus    stopwatch.Model
 	rest     stopwatch.Model
 	writing  bool
+	editing  bool
 	quiting  bool
 	todos    []string
 	cursor   int
@@ -173,14 +174,27 @@ func (m model) handleNormalMode(msg tea.KeyMsg) (model, tea.Cmd) {
 	case key.Matches(msg, m.keymap.create):
 		m.writing = true
 		return m, m.textInput.Focus()
+	case key.Matches(msg, m.keymap.edit):
+		if len(m.todos) > 0 {
+			m.writing = true
+			m.editing = true
+			m.textInput.SetValue(m.todos[m.cursor])
+			return m, m.textInput.Focus()
+		}
 	}
+
 	return m, nil
 }
 
 func (m model) handleWritingMode(msg tea.KeyMsg) (model, tea.Cmd) {
 	switch msg.String() {
 	case "enter":
-		m.todos = append(m.todos, m.textInput.Value())
+		if m.editing {
+			m.todos[m.cursor] = m.textInput.Value()
+			m.editing = false
+		} else {
+			m.todos = append(m.todos, m.textInput.Value())
+		}
 		m.textInput.SetValue("")
 		m.writing = false
 		return m, nil
@@ -219,13 +233,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) View() string {
 	s := fmt.Sprintf("Focus time: %s\n", m.focus.View())
 	s += fmt.Sprintf("Break time: %s\n", m.rest.View())
-	s += fmt.Sprintf("\nTo do list:\n")
-	for i, todo := range(m.todos) {
-		cursorMark := " "
-		if i == m.cursor {
-			cursorMark = ">"
+	if len(m.todos) > 0 {
+		s += fmt.Sprintf("\nTo do list:\n")
+		for i, todo := range(m.todos) {
+			cursorMark := " "
+			if i == m.cursor {
+				cursorMark = ">"
+			}
+			s += fmt.Sprintf("%s %s\n", cursorMark, todo)
 		}
-		s += fmt.Sprintf("%s %s\n", cursorMark, todo)
 	}
 	if m.writing {
 		s += fmt.Sprintf(
