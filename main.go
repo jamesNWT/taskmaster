@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 	"os"
+	// "strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/help"
@@ -58,10 +59,21 @@ type keymap struct {
 	up               key.Binding
 	down             key.Binding
 	toggleFullScreen key.Binding
+	help             key.Binding
+}
+
+func (k keymap) ShortHelp() []key.Binding {
+	return []key.Binding{k.help, k.quit}
+}
+
+func (k keymap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{
+		{k.edit, k.create, k.remove, k.strikeThrough},
+		{k.firstStart, k.switchTimer, k.help, k.quit},
+	}
 }
 
 // initialModel
-
 func initialModel() model {
 
 	ti := textinput.New()
@@ -72,11 +84,11 @@ func initialModel() model {
 	keymap := keymap{
 		firstStart: key.NewBinding(
 			key.WithKeys(" "),
-			key.WithHelp(" ", "start"),
+			key.WithHelp("space", "start"),
 		),
 		switchTimer: key.NewBinding(
 			key.WithKeys(" "),
-			key.WithHelp(" ", "switchTimer"),
+			key.WithHelp("space", "switch stopwatch"),
 		),
 		quit: key.NewBinding(
 			key.WithKeys("q", "ctrl+c"),
@@ -85,6 +97,10 @@ func initialModel() model {
 		toggleFullScreen: key.NewBinding(
 			key.WithKeys("f"),
 			key.WithHelp("f", "fullscreen"),
+		),
+		help: key.NewBinding(
+		key.WithKeys("?"),
+		key.WithHelp("?", "toggle help"),
 		),
 		// bindings related to todo list items
 		edit: key.NewBinding(
@@ -141,6 +157,19 @@ func (m model) handleNormalMode(msg tea.KeyMsg) (model, tea.Cmd) {
 		restCmd := m.rest.Toggle()
 		focusCmd := m.focus.Toggle()
 		return m, tea.Batch(restCmd, focusCmd)
+	case key.Matches(msg, m.keymap.help):
+		m.help.ShowAll = !m.help.ShowAll
+		return m, nil
+	case key.Matches(msg, m.keymap.up):
+		if m.cursor > 0 {
+			m.cursor--
+		}
+		return m, nil
+	case key.Matches(msg, m.keymap.down):
+		if m.cursor < len(m.todos) - 1 {
+			m.cursor++
+		}
+		return m, nil
 	case key.Matches(msg, m.keymap.create):
 		m.writing = true
 		return m, m.textInput.Focus()
@@ -191,8 +220,12 @@ func (m model) View() string {
 	s := fmt.Sprintf("Focus time: %s\n", m.focus.View())
 	s += fmt.Sprintf("Break time: %s\n", m.rest.View())
 	s += fmt.Sprintf("\nTo do list:\n")
-	for _, todo := range(m.todos) {
-		s += fmt.Sprintf("%s\n", todo)
+	for i, todo := range(m.todos) {
+		cursorMark := " "
+		if i == m.cursor {
+			cursorMark = ">"
+		}
+		s += fmt.Sprintf("%s %s\n", cursorMark, todo)
 	}
 	if m.writing {
 		s += fmt.Sprintf(
@@ -201,6 +234,7 @@ func (m model) View() string {
 			"(press Enter to submit, Esc to quit)",
 		)
 	}
+	s +=  "\n" + m.help.View(m.keymap)
 	return s
 }
 
