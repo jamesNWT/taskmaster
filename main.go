@@ -152,7 +152,12 @@ func (m model) handleNormalMode(msg tea.KeyMsg) (model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keymap.quit): 
 		m.quiting = true
-		return m, tea.Quit
+		var altScreenCmd tea.Cmd
+		if m.altScreen {
+			m.altScreen = false
+			altScreenCmd = tea.ExitAltScreen
+		}
+		return m, tea.Sequence(altScreenCmd, tea.Quit)
 	case key.Matches(msg, m.keymap.firstStart):
 		m.keymap.firstStart.SetEnabled(false)
 		m.keymap.switchTimer.SetEnabled(true)
