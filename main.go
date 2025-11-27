@@ -29,26 +29,6 @@ type model struct {
 	altScreen bool
 }	
 
-/*
-Things the user needs to be able to do in normal mode:
-- Start the timers once
-- Toggle the timers
-- Show help
-- Enter "writing mode" to start creating a to-do
-- Remove a todo
-- Strikethrough a todo
-- Enter writing mode to start editing a to-do
-- Toggle fullscreen
-- Scroll through todos with some UI showing which one their cursor is on.
-- quit application
-
-Things user needs to be able to in "writing mode"
-- Type normally into the textInput
-- Submit the textinput to return to normal mode.
-- exit writing mode without submiting the textInput
-- quit application
-*/
-
 // keymap
 type keymap struct {
 	edit             key.Binding
@@ -71,8 +51,8 @@ func (k keymap) ShortHelp() []key.Binding {
 
 func (k keymap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.edit, k.create, k.remove, k.strikeThrough},
-		{k.firstStart, k.switchTimer, k.help, k.quit},
+		{k.create, k.edit, k.remove, k.strikeThrough, k.up, k.down},
+		{k.firstStart, k.switchTimer, k.toggleAltScreen, k.help, k.quit},
 	}
 }
 
@@ -87,7 +67,7 @@ func initialModel() model {
 	keymap := keymap{
 		firstStart: key.NewBinding(
 			key.WithKeys(" "),
-			key.WithHelp("space", "start"),
+			key.WithHelp("space", "start timer"),
 		),
 		switchTimer: key.NewBinding(
 			key.WithKeys(" "),
@@ -95,11 +75,11 @@ func initialModel() model {
 		),
 		quit: key.NewBinding(
 			key.WithKeys("q", "ctrl+c"),
-			key.WithHelp("q", "quit"),
+			key.WithHelp("q/ctrl+c", "quit"),
 		),
 		toggleAltScreen: key.NewBinding(
 			key.WithKeys("f"),
-			key.WithHelp("f", "fullscreen"),
+			key.WithHelp("f", "toggle alt screen"),
 		),
 		help: key.NewBinding(
 		key.WithKeys("?"),
@@ -108,27 +88,27 @@ func initialModel() model {
 		// bindings related to todo list items
 		edit: key.NewBinding(
 			key.WithKeys("e"),
-			key.WithHelp("e", "edit"),
+			key.WithHelp("e", "edit a todo"),
 		),
 		create: key.NewBinding(
 			key.WithKeys("enter"),
-			key.WithHelp("enter", "create"),
+			key.WithHelp("enter", "create a todo"),
 		),
 		remove: key.NewBinding(
 			key.WithKeys("r"),
-			key.WithHelp("r", "remove"),
+			key.WithHelp("r", "remove a todo"),
 		),
 		strikeThrough: key.NewBinding(
 			key.WithKeys("s"),
-			key.WithHelp("s", "strikeThrough"),
+			key.WithHelp("s", "strike a todo "),
 		),
 		up: key.NewBinding(
-			key.WithKeys("k"),
-			key.WithHelp("k", "up"),
+			key.WithKeys("k", "up"),
+			key.WithHelp("k/↑", "move up"),
 		),
 		down: key.NewBinding(
-			key.WithKeys("j"),
-			key.WithHelp("j", "down"),
+			key.WithKeys("j", "down"),
+			key.WithHelp("j/↓", "move down"),
 		),
 	}
 
@@ -296,7 +276,9 @@ func (m model) View() string {
 			"(press Enter to submit, Esc to quit)",
 		)
 	}
-	s +=  "\n" + m.help.View(m.keymap)
+	if !m.quiting {
+		s +=  "\n" + m.help.View(m.keymap)
+	}
 	return s
 }
 
