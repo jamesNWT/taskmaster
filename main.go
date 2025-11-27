@@ -23,6 +23,7 @@ type model struct {
 	editing  bool
 	quiting  bool
 	todos    []string
+	stricken map[int]struct{}
 	cursor   int
 	textInput textinput.Model
 }	
@@ -139,6 +140,7 @@ func initialModel() model {
 		rest: stopwatch.NewWithInterval(time.Millisecond),
 		todos: []string{},
 		textInput: ti,
+		stricken: make(map[int]struct{}), 
 	}
 	
 	return m
@@ -160,17 +162,14 @@ func (m model) handleNormalMode(msg tea.KeyMsg) (model, tea.Cmd) {
 		return m, tea.Batch(restCmd, focusCmd)
 	case key.Matches(msg, m.keymap.help):
 		m.help.ShowAll = !m.help.ShowAll
-		return m, nil
 	case key.Matches(msg, m.keymap.up):
 		if m.cursor > 0 {
 			m.cursor--
 		}
-		return m, nil
 	case key.Matches(msg, m.keymap.down):
 		if m.cursor < len(m.todos) - 1 {
 			m.cursor++
 		}
-		return m, nil
 	case key.Matches(msg, m.keymap.create):
 		m.writing = true
 		return m, m.textInput.Focus()
@@ -184,9 +183,29 @@ func (m model) handleNormalMode(msg tea.KeyMsg) (model, tea.Cmd) {
 	case key.Matches(msg, m.keymap.remove):
 		if len(m.todos) > 0 {
 			m.todos = append(m.todos[:m.cursor], m.todos[m.cursor+1:]...)
+			
+			// all the keys for the strike map > cursor need to be lessed by one
+			updatedStricken := make(map[int]struct{})
+			for k, v := range(m.stricken) {
+				if k < m.cursor {
+					updatedStricken[k] = v
+				} else {
+					updatedStricken[k-1] = v
+				}
+			}
+			m.stricken = updatedStricken
+			
 			if m.cursor > len(m.todos) - 1 && m.cursor > 0 {
 				m.cursor--
 			}
+		}
+	case key.Matches(msg, m.keymap.strikeThrough):
+		
+		_, ok := m.stricken[m.cursor]
+		if ok {
+			delete(m.stricken, m.cursor)
+		} else {
+			m.stricken[m.cursor] = struct{}{}
 		}
 	}
 
@@ -247,7 +266,12 @@ func (m model) View() string {
 			if i == m.cursor {
 				cursorMark = ">"
 			}
-			s += fmt.Sprintf("%s %s\n", cursorMark, todo)
+			
+			checked := " " // not selected
+			if _, ok := m.stricken[i]; ok {
+				checked = "x" // selected
+			}
+			s += fmt.Sprintf("%s%s %s\n", cursorMark, checked, todo)
 		}
 	}
 	if m.writing {
