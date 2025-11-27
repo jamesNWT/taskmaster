@@ -181,6 +181,13 @@ func (m model) handleNormalMode(msg tea.KeyMsg) (model, tea.Cmd) {
 			m.textInput.SetValue(m.todos[m.cursor])
 			return m, m.textInput.Focus()
 		}
+	case key.Matches(msg, m.keymap.remove):
+		if len(m.todos) > 0 {
+			m.todos = append(m.todos[:m.cursor], m.todos[m.cursor+1:]...)
+			if m.cursor > len(m.todos) - 1 && m.cursor > 0 {
+				m.cursor--
+			}
+		}
 	}
 
 	return m, nil
