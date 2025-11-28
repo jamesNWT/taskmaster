@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"time"
 	"os"
+	"io"
 	// "strings"
 
+	"github.com/davecgh/go-spew/spew"
+	// "github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/stopwatch"
@@ -27,6 +30,9 @@ type model struct {
 	cursor    int
 	textInput textinput.Model
 	altScreen bool
+	width     int
+	height    int
+	dump      io.Writer
 }	
 
 // keymap
@@ -63,6 +69,18 @@ func initialModel() model {
 	ti.Placeholder = "todo..."
 	ti.CharLimit = 256
 	ti.Width = 50
+
+	var dump *os.File
+	if _, ok := os.LookupEnv("DEBUG"); ok {
+		var err error
+		dump, err = os.OpenFile(
+			"messages.log", 
+			os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 
+			0o644)
+		if err != nil {
+			os.Exit(1)
+		}
+	}
 
 	keymap := keymap{
 		firstStart: key.NewBinding(
@@ -122,6 +140,7 @@ func initialModel() model {
 		todos: []string{},
 		textInput: ti,
 		stricken: make(map[int]struct{}), 
+		dump: dump,
 	}
 	
 	return m
@@ -231,6 +250,9 @@ func (m model) handleWritingMode(msg tea.KeyMsg) (model, tea.Cmd) {
 
 // Update
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if m.dump != nil {
+		spew.Fdump(m.dump, msg)
+	}
 
 	var keyCmd tea.Cmd
 	
@@ -238,11 +260,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		if m.writing {
 			m, keyCmd = m.handleWritingMode(msg)
-		} else { 
+		} else {
 			m, keyCmd = m.handleNormalMode(msg)
 		}
-	case tea.WindowSizeMsg:
-		return m, tea.ClearScreen
+	// case tea.WindowSizeMsg:
 	}
 
 	var focusCmd, restCmd tea.Cmd 
@@ -291,6 +312,7 @@ func (m model) Init() tea.Cmd {
 }
 
 func main() {
+	
 	if _, err := tea.NewProgram(initialModel()).Run(); err != nil {
 		fmt.Println("Something broke: ", err)
 		os.Exit(1)

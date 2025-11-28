@@ -1,0 +1,12 @@
+(tea.WindowSizeMsg) {
+ Width: (int) 55,
+ Height: (int) 17
+}
+(tea.clearScreenMsg) {
+}
+(tea.KeyMsg) f
+(tea.enterAltScreenMsg) {
+}
+(tea.KeyMsg) q
+(tea.exitAltScreenMsg) {
+}

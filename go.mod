@@ -5,6 +5,7 @@ go 1.25.4
 require (
 	github.com/charmbracelet/bubbles v0.21.0
 	github.com/charmbracelet/bubbletea v1.3.10
+	github.com/davecgh/go-spew v1.1.1
 )
 
 require (
