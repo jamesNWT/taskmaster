@@ -122,6 +122,7 @@ func initialModel() model {
 		todos: []string{},
 		textInput: ti,
 		stricken: make(map[int]struct{}), 
+		altScreen: true,
 	}
 	
 	return m
@@ -289,7 +290,8 @@ func (m model) Init() tea.Cmd {
 }
 
 func main() {
-	if _, err := tea.NewProgram(initialModel()).Run(); err != nil {
+	if _, err := tea.NewProgram(initialModel(), tea.WithAltScreen()).Run(); 
+	err != nil {
 		fmt.Println("Something broke: ", err)
 		os.Exit(1)
 	}
