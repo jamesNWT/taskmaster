@@ -27,6 +27,7 @@ type model struct {
 	cursor    int
 	textInput textinput.Model
 	altScreen bool
+	suspending bool
 }	
 
 // keymap
@@ -43,6 +44,7 @@ type keymap struct {
 	down             key.Binding
 	toggleAltScreen  key.Binding
 	help             key.Binding
+	suspend          key.Binding
 }
 
 func (k keymap) ShortHelp() []key.Binding {
@@ -84,6 +86,10 @@ func initialModel() model {
 		help: key.NewBinding(
 		key.WithKeys("?"),
 		key.WithHelp("?", "toggle help"),
+		),
+		suspend: key.NewBinding(
+		key.WithKeys("ctrl+z"),
+		key.WithHelp("ctrl+z", "suspend program"),
 		),
 		// bindings related to todo list items
 		edit: key.NewBinding(
@@ -139,6 +145,9 @@ func (m model) handleNormalMode(msg tea.KeyMsg) (model, tea.Cmd) {
 			altScreenCmd = tea.ExitAltScreen
 		}
 		return m, tea.Sequence(altScreenCmd, tea.Quit)
+	case key.Matches(msg, m.keymap.suspend):
+		m.suspending = true
+		return m, tea.Suspend
 	case key.Matches(msg, m.keymap.firstStart):
 		m.keymap.firstStart.SetEnabled(false)
 		m.keymap.switchTimer.SetEnabled(true)
@@ -242,6 +251,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else { 
 			m, keyCmd = m.handleNormalMode(msg)
 		}
+	case tea.ResumeMsg:
+		m.suspending = false
+		return m, nil
 	}
 
 	var focusCmd, restCmd tea.Cmd 
