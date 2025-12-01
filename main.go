@@ -41,7 +41,8 @@ type keymap struct {
 	strikeThrough    key.Binding
 
 	firstStart       key.Binding
-	switchTimer      key.Binding
+	switchWatch      key.Binding
+	pauseWatches     key.Binding
 	quit             key.Binding
 	up               key.Binding
 	down             key.Binding
@@ -58,11 +59,12 @@ func (k keymap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.create, k.edit, k.remove, k.strikeThrough, k.up, k.down},
 		{k.firstStart, 
-		k.switchTimer, 
+		k.switchWatch, 
 		k.toggleAltScreen, 
 		k.help, 
 		k.quit, 
-		k.suspend},
+		k.suspend,
+		k.pauseWatches},
 	}
 }
 
@@ -77,11 +79,15 @@ func initialModel() Model {
 	keymap := keymap{
 		firstStart: key.NewBinding(
 			key.WithKeys(" "),
-			key.WithHelp("space", "start timer"),
+			key.WithHelp("space", "start focus stopwatch"),
 		),
-		switchTimer: key.NewBinding(
+		switchWatch: key.NewBinding(
 			key.WithKeys(" "),
 			key.WithHelp("space", "switch stopwatch"),
+		),
+		pauseWatches: key.NewBinding(
+			key.WithKeys("p"),
+			key.WithHelp("p", "stop stopwatches"),
 		),
 		quit: key.NewBinding(
 			key.WithKeys("q", "ctrl+c"),
@@ -128,7 +134,8 @@ func initialModel() Model {
 		),
 	}
 
-	keymap.switchTimer.SetEnabled(false)
+	keymap.switchWatch.SetEnabled(false)
+	keymap.pauseWatches.SetEnabled(false)
 
 	m := Model{
 		keymap: keymap,
@@ -161,9 +168,19 @@ func (m Model) handleNormalMode(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m, tea.Suspend
 	case key.Matches(msg, m.keymap.firstStart):
 		m.keymap.firstStart.SetEnabled(false)
-		m.keymap.switchTimer.SetEnabled(true)
+		m.keymap.switchWatch.SetEnabled(true)
+		m.keymap.pauseWatches.SetEnabled(true)
 		return m, m.focus.Start()
-	case key.Matches(msg, m.keymap.switchTimer):
+	case key.Matches(msg, m.keymap.pauseWatches):
+		m.keymap.firstStart.SetEnabled(true)
+		m.keymap.switchWatch.SetEnabled(false)
+		m.keymap.pauseWatches.SetEnabled(false)
+		if m.focus.Running() {
+			return m, m.focus.Stop()
+		} else {
+			return m, m.rest.Stop()
+		}
+	case key.Matches(msg, m.keymap.switchWatch):
 		restCmd := m.rest.Toggle()
 		focusCmd := m.focus.Toggle()
 		return m, tea.Batch(restCmd, focusCmd)
