@@ -13,21 +13,24 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// model
-type model struct {
-	keymap    keymap
-	help      help.Model
-	focus     stopwatch.Model
-	rest      stopwatch.Model
-	writing   bool
-	editing   bool
-	quiting   bool
-	todos     []string
-	stricken  map[int]struct{}
-	cursor    int
-	textInput textinput.Model
-	altScreen bool
-	suspending bool
+// Model
+type Model struct {
+	keymap      keymap
+	help        help.Model
+	focus       stopwatch.Model
+	rest        stopwatch.Model
+	writing     bool
+	editing     bool
+	quiting     bool
+	todos       []string
+	stricken    map[int]struct{}
+	cursor      int
+	textInput   textinput.Model
+	altScreen   bool
+	suspending  bool
+	suspendTime time.Time
+	focusOffset time.Duration
+	restOffset  time.Duration
 }	
 
 // keymap
@@ -54,12 +57,17 @@ func (k keymap) ShortHelp() []key.Binding {
 func (k keymap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.create, k.edit, k.remove, k.strikeThrough, k.up, k.down},
-		{k.firstStart, k.switchTimer, k.toggleAltScreen, k.help, k.quit},
+		{k.firstStart, 
+		k.switchTimer, 
+		k.toggleAltScreen, 
+		k.help, 
+		k.quit, 
+		k.suspend},
 	}
 }
 
 // initialModel
-func initialModel() model {
+func initialModel() Model {
 
 	ti := textinput.New()
 	ti.Placeholder = "todo..."
@@ -89,7 +97,9 @@ func initialModel() model {
 		),
 		suspend: key.NewBinding(
 		key.WithKeys("ctrl+z"),
-		key.WithHelp("ctrl+z", "suspend program"),
+		key.WithHelp(
+			"ctrl+z", 
+			"suspend program (timers will be updated upon resume)"),
 		),
 		// bindings related to todo list items
 		edit: key.NewBinding(
@@ -120,7 +130,7 @@ func initialModel() model {
 
 	keymap.switchTimer.SetEnabled(false)
 
-	m := model{
+	m := Model{
 		keymap: keymap,
 		help: help.New(),
 		focus: stopwatch.NewWithInterval(time.Millisecond),
@@ -134,7 +144,7 @@ func initialModel() model {
 	return m
 }
 		
-func (m model) handleNormalMode(msg tea.KeyMsg) (model, tea.Cmd) {
+func (m Model) handleNormalMode(msg tea.KeyMsg) (Model, tea.Cmd) {
 
 	switch {
 	case key.Matches(msg, m.keymap.quit): 
@@ -147,6 +157,7 @@ func (m model) handleNormalMode(msg tea.KeyMsg) (model, tea.Cmd) {
 		return m, tea.Sequence(altScreenCmd, tea.Quit)
 	case key.Matches(msg, m.keymap.suspend):
 		m.suspending = true
+		m.suspendTime = time.Now()
 		return m, tea.Suspend
 	case key.Matches(msg, m.keymap.firstStart):
 		m.keymap.firstStart.SetEnabled(false)
@@ -217,7 +228,7 @@ func (m model) handleNormalMode(msg tea.KeyMsg) (model, tea.Cmd) {
 	return m, nil
 }
 
-func (m model) handleWritingMode(msg tea.KeyMsg) (model, tea.Cmd) {
+func (m Model) handleWritingMode(msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch msg.String() {
 	case "enter":
 		if m.editing {
@@ -240,7 +251,7 @@ func (m model) handleWritingMode(msg tea.KeyMsg) (model, tea.Cmd) {
 }
 
 // Update
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	var keyCmd tea.Cmd
 	
@@ -253,6 +264,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.ResumeMsg:
 		m.suspending = false
+		if !m.suspendTime.IsZero() {
+			if m.focus.Running() {
+				m.focusOffset += time.Since(m.suspendTime)
+			} else if m.rest.Running() {
+				m.restOffset += time.Since(m.suspendTime)
+			}
+		}
 		return m, nil
 	}
 
@@ -263,10 +281,31 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(focusCmd, restCmd, keyCmd)
 }
 
+func formatDuration(d time.Duration) string {
+	// Round to tenths of a second
+	d = d.Round(100 * time.Millisecond)
+
+	h := d / time.Hour
+	d -= h * time.Hour
+	m := d / time.Minute
+	d -= m * time.Minute
+	s := d / time.Second
+	d -= s * time.Second
+	tenths := d / (100 * time.Millisecond)
+
+	if h > 0 {
+		return fmt.Sprintf("%d:%02d:%02d.%d", h, m, s, tenths)
+	} else if m > 0 {
+		return fmt.Sprintf("%d:%02d.%d", m, s, tenths)
+	} else {
+		return fmt.Sprintf("%d.%d", s, tenths)
+	}
+}
+
 // View
-func (m model) View() string {
-	s := fmt.Sprintf("Focus time: %s\n", m.focus.View())
-	s += fmt.Sprintf("Break time: %s\n", m.rest.View())
+func (m Model) View() string {
+	s := fmt.Sprintf("Focus time: %s\n", formatDuration(m.focus.Elapsed() + m.focusOffset))
+	s += fmt.Sprintf("Break time: %s\n", formatDuration(m.rest.Elapsed() + m.restOffset))
 	if len(m.todos) > 0 {
 		s += fmt.Sprintf("\nTo do list:\n")
 		for i, todo := range(m.todos) {
@@ -296,7 +335,7 @@ func (m model) View() string {
 }
 
 // Init
-func (m model) Init() tea.Cmd {
+func (m Model) Init() tea.Cmd {
 	// return m.focus.Init()
 	return nil
 }
