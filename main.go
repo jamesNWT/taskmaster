@@ -321,8 +321,14 @@ func formatDuration(d time.Duration) string {
 
 // View
 func (m Model) View() string {
-	s := fmt.Sprintf("Focus time: %s\n", formatDuration(m.focus.Elapsed() + m.focusOffset))
-	s += fmt.Sprintf("Break time: %s\n", formatDuration(m.rest.Elapsed() + m.restOffset))
+	s := fmt.Sprintf(
+		"Focus time: %s\n", 
+		formatDuration(m.focus.Elapsed() + m.focusOffset)
+	)
+	s += fmt.Sprintf(
+		"Break time: %s\n", 
+		formatDuration(m.rest.Elapsed() + m.restOffset)
+	)
 	if len(m.todos) > 0 {
 		s += fmt.Sprintf("\nTo do list:\n")
 		for i, todo := range(m.todos) {
