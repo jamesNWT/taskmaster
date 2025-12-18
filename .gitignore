@@ -1,2 +1,8 @@
 # build artifact
 taskmaster
+
+# AUR build artifacts
+pkg/
+src/
+*.pkg.tar.zst
+*.tar.gz
