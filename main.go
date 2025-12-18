@@ -2,15 +2,15 @@ package main
 
 import (
 	"fmt"
-	"time"
 	"os"
-	// "strings"
+	"time"
 
-	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/help"
-	"github.com/charmbracelet/bubbles/stopwatch"
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/stopwatch"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // Model
@@ -31,24 +31,25 @@ type Model struct {
 	suspendTime time.Time
 	focusOffset time.Duration
 	restOffset  time.Duration
-}	
+	width       int
+}
 
 // keymap
 type keymap struct {
-	edit             key.Binding
-	create           key.Binding
-	remove           key.Binding
-	strikeThrough    key.Binding
+	edit          key.Binding
+	create        key.Binding
+	remove        key.Binding
+	strikeThrough key.Binding
 
-	firstStart       key.Binding
-	switchWatch      key.Binding
-	pauseWatches     key.Binding
-	quit             key.Binding
-	up               key.Binding
-	down             key.Binding
-	toggleAltScreen  key.Binding
-	help             key.Binding
-	suspend          key.Binding
+	firstStart      key.Binding
+	switchWatch     key.Binding
+	pauseWatches    key.Binding
+	quit            key.Binding
+	up              key.Binding
+	down            key.Binding
+	toggleAltScreen key.Binding
+	help            key.Binding
+	suspend         key.Binding
 }
 
 func (k keymap) ShortHelp() []key.Binding {
@@ -58,15 +59,26 @@ func (k keymap) ShortHelp() []key.Binding {
 func (k keymap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.create, k.edit, k.remove, k.strikeThrough, k.up, k.down},
-		{k.firstStart, 
-		k.switchWatch, 
-		k.toggleAltScreen, 
-		k.help, 
-		k.quit, 
-		k.suspend,
-		k.pauseWatches},
+		{k.firstStart,
+			k.switchWatch,
+			k.toggleAltScreen,
+			k.help,
+			k.quit,
+			k.suspend,
+			k.pauseWatches},
 	}
 }
+
+// Styles
+var (
+	headerStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("205"))
+
+	cursorStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("212")).
+			Bold(true)
+)
 
 // initialModel
 func initialModel() Model {
@@ -98,14 +110,14 @@ func initialModel() Model {
 			key.WithHelp("f", "toggle alt screen"),
 		),
 		help: key.NewBinding(
-		key.WithKeys("?"),
-		key.WithHelp("?", "toggle help"),
+			key.WithKeys("?"),
+			key.WithHelp("?", "toggle help"),
 		),
 		suspend: key.NewBinding(
-		key.WithKeys("ctrl+z"),
-		key.WithHelp(
-			"ctrl+z", 
-			"suspend program (timers will be updated upon resume)"),
+			key.WithKeys("ctrl+z"),
+			key.WithHelp(
+				"ctrl+z",
+				"suspend program (timers will be updated upon resume)"),
 		),
 		// bindings related to todo list items
 		edit: key.NewBinding(
@@ -138,23 +150,24 @@ func initialModel() Model {
 	keymap.pauseWatches.SetEnabled(false)
 
 	m := Model{
-		keymap: keymap,
-		help: help.New(),
-		focus: stopwatch.NewWithInterval(time.Millisecond),
-		rest: stopwatch.NewWithInterval(time.Millisecond),
-		todos: []string{},
+		keymap:    keymap,
+		help:      help.New(),
+		focus:     stopwatch.NewWithInterval(time.Millisecond),
+		rest:      stopwatch.NewWithInterval(time.Millisecond),
+		todos:     []string{},
 		textInput: ti,
-		stricken: make(map[int]struct{}), 
+		stricken:  make(map[int]struct{}),
 		altScreen: true,
+		width:     80,
 	}
-	
+
 	return m
 }
-		
+
 func (m Model) handleNormalMode(msg tea.KeyMsg) (Model, tea.Cmd) {
 
 	switch {
-	case key.Matches(msg, m.keymap.quit): 
+	case key.Matches(msg, m.keymap.quit):
 		m.quiting = true
 		var altScreenCmd tea.Cmd
 		if m.altScreen {
@@ -191,7 +204,7 @@ func (m Model) handleNormalMode(msg tea.KeyMsg) (Model, tea.Cmd) {
 			m.cursor--
 		}
 	case key.Matches(msg, m.keymap.down):
-		if m.cursor < len(m.todos) - 1 {
+		if m.cursor < len(m.todos)-1 {
 			m.cursor++
 		}
 	case key.Matches(msg, m.keymap.create):
@@ -207,11 +220,11 @@ func (m Model) handleNormalMode(msg tea.KeyMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keymap.remove):
 		if len(m.todos) > 0 {
 			m.todos = append(m.todos[:m.cursor], m.todos[m.cursor+1:]...)
-			
+
 			// All of the keys greater than the cursor in stricken must be
 			// decremented by 1
 			updatedStricken := make(map[int]struct{})
-			for k, v := range(m.stricken) {
+			for k, v := range m.stricken {
 				if k < m.cursor {
 					updatedStricken[k] = v
 				} else {
@@ -219,13 +232,13 @@ func (m Model) handleNormalMode(msg tea.KeyMsg) (Model, tea.Cmd) {
 				}
 			}
 			m.stricken = updatedStricken
-			
-			if m.cursor > len(m.todos) - 1 && m.cursor > 0 {
+
+			if m.cursor > len(m.todos)-1 && m.cursor > 0 {
 				m.cursor--
 			}
 		}
 	case key.Matches(msg, m.keymap.strikeThrough):
-		
+
 		_, ok := m.stricken[m.cursor]
 		if ok {
 			delete(m.stricken, m.cursor)
@@ -263,20 +276,27 @@ func (m Model) handleWritingMode(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m, nil
 	}
 	var cmd tea.Cmd
-    m.textInput, cmd = m.textInput.Update(msg)
-    return m, cmd
+	m.textInput, cmd = m.textInput.Update(msg)
+	return m, cmd
 }
 
 // Update
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	var keyCmd tea.Cmd
-	
+
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		todoWidth := msg.Width - 10
+		if todoWidth < 20 {
+			todoWidth = 20
+		}
+		m.textInput.Width = todoWidth
 	case tea.KeyMsg:
 		if m.writing {
 			m, keyCmd = m.handleWritingMode(msg)
-		} else { 
+		} else {
 			m, keyCmd = m.handleNormalMode(msg)
 		}
 	case tea.ResumeMsg:
@@ -291,7 +311,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	var focusCmd, restCmd tea.Cmd 
+	var focusCmd, restCmd tea.Cmd
 
 	m.focus, focusCmd = m.focus.Update(msg)
 	m.rest, restCmd = m.rest.Update(msg)
@@ -321,29 +341,38 @@ func formatDuration(d time.Duration) string {
 
 // View
 func (m Model) View() string {
-	s := fmt.Sprintf(
-		"Focus time: %s\n", 
-		formatDuration(m.focus.Elapsed() + m.focusOffset),
-	)
-	s += fmt.Sprintf(
-		"Break time: %s\n", 
-		formatDuration(m.rest.Elapsed() + m.restOffset),
-	)
+	s := headerStyle.Render("Focus time:") + " " + formatDuration(m.focus.Elapsed()+m.focusOffset) + "\n"
+	s += headerStyle.Render("Break time:") +" " + formatDuration(m.rest.Elapsed()+m.restOffset) + "\n"
+
 	if len(m.todos) > 0 {
-		s += fmt.Sprintf("\nTo do list:\n")
-		for i, todo := range(m.todos) {
+		todoWidth := m.width - 10
+		if todoWidth < 20 {
+			todoWidth = 20
+		}
+
+		todoStyle := lipgloss.NewStyle().Width(todoWidth)
+		strikethroughStyle := lipgloss.NewStyle().
+			Width(todoWidth).
+			Strikethrough(true).
+			Foreground(lipgloss.Color("240"))
+
+		s += "\n" + headerStyle.Render("To do list:") + "\n"
+		for i, todo := range m.todos {
 			cursorMark := " "
 			if i == m.cursor {
-				cursorMark = ">"
+				cursorMark = cursorStyle.Render(">")
 			}
-			
-			checked := " " // not selected
+
+			todoItemStyle := todoStyle
+
 			if _, ok := m.stricken[i]; ok {
-				checked = "x" // selected
+				todoItemStyle = strikethroughStyle
 			}
-			s += fmt.Sprintf("%s%s %s\n", cursorMark, checked, todo)
+
+			s += fmt.Sprintf("%s %s\n", cursorMark, todoItemStyle.Render(todo))
 		}
 	}
+
 	if m.writing {
 		s += fmt.Sprintf(
 			"\nEnter a to-do:\n\n%s\n\n%s\n",
@@ -351,8 +380,9 @@ func (m Model) View() string {
 			"(press Enter to submit, Esc to quit)",
 		)
 	}
+
 	if !m.quiting {
-		s +=  "\n" + m.help.View(m.keymap)
+		s += "\n" + m.help.View(m.keymap)
 	}
 	return s
 }
@@ -364,8 +394,7 @@ func (m Model) Init() tea.Cmd {
 }
 
 func main() {
-	if _, err := tea.NewProgram(initialModel(), tea.WithAltScreen()).Run(); 
-	err != nil {
+	if _, err := tea.NewProgram(initialModel(), tea.WithAltScreen()).Run(); err != nil {
 		fmt.Println("Something broke: ", err)
 		os.Exit(1)
 	}
