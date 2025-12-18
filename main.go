@@ -13,6 +13,11 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+type Todo struct {
+	text string
+	stricken bool
+}
+
 // Model
 type Model struct {
 	keymap      keymap
@@ -22,8 +27,7 @@ type Model struct {
 	writing     bool
 	editing     bool
 	quiting     bool
-	todos       []string
-	stricken    map[int]struct{}
+	todos       []Todo
 	cursor      int
 	textInput   textinput.Model
 	altScreen   bool
@@ -169,9 +173,8 @@ func initialModel() Model {
 		help:      help.New(),
 		focus:     stopwatch.NewWithInterval(time.Millisecond),
 		rest:      stopwatch.NewWithInterval(time.Millisecond),
-		todos:     []string{},
+		todos:     []Todo{},
 		textInput: ti,
-		stricken:  make(map[int]struct{}),
 		altScreen: true,
 		width:     defaultWidth,
 	}
@@ -228,37 +231,19 @@ func (m Model) handleNormalMode(msg tea.KeyMsg) (Model, tea.Cmd) {
 		if len(m.todos) > 0 {
 			m.writing = true
 			m.editing = true
-			m.textInput.SetValue(m.todos[m.cursor])
+			m.textInput.SetValue(m.todos[m.cursor].text)
 			return m, m.textInput.Focus()
 		}
 	case key.Matches(msg, m.keymap.remove):
 		if len(m.todos) > 0 {
 			m.todos = append(m.todos[:m.cursor], m.todos[m.cursor+1:]...)
 
-			// All of the keys greater than the cursor in stricken must be
-			// decremented by 1
-			updatedStricken := make(map[int]struct{})
-			for k, v := range m.stricken {
-				if k < m.cursor {
-					updatedStricken[k] = v
-				} else {
-					updatedStricken[k-1] = v
-				}
-			}
-			m.stricken = updatedStricken
-
 			if m.cursor > len(m.todos)-1 && m.cursor > 0 {
 				m.cursor--
 			}
 		}
 	case key.Matches(msg, m.keymap.strikeThrough):
-
-		_, ok := m.stricken[m.cursor]
-		if ok {
-			delete(m.stricken, m.cursor)
-		} else {
-			m.stricken[m.cursor] = struct{}{}
-		}
+		m.todos[m.cursor].stricken = !m.todos[m.cursor].stricken
 	case key.Matches(msg, m.keymap.toggleAltScreen):
 		if m.altScreen {
 			m.altScreen = false
@@ -276,10 +261,10 @@ func (m Model) handleWritingMode(msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch msg.String() {
 	case "enter":
 		if m.editing {
-			m.todos[m.cursor] = m.textInput.Value()
+			m.todos[m.cursor].text = m.textInput.Value()
 			m.editing = false
 		} else {
-			m.todos = append(m.todos, m.textInput.Value())
+			m.todos = append(m.todos, Todo{m.textInput.Value(), false})
 		}
 		m.textInput.SetValue("")
 		m.writing = false
@@ -373,11 +358,11 @@ func (m Model) View() string {
 
 			todoItemStyle := todoStyle
 
-			if _, ok := m.stricken[i]; ok {
+			if todo.stricken {
 				todoItemStyle = strikethroughStyle
 			}
 
-			s += fmt.Sprintf("%s %s\n", cursorMark, todoItemStyle.Render(todo))
+			s += fmt.Sprintf("%s %s\n", cursorMark, todoItemStyle.Render(todo.text))
 		}
 	}
 
