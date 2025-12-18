@@ -58,7 +58,6 @@ type keymap struct {
 	quit            key.Binding
 	up              key.Binding
 	down            key.Binding
-	toggleAltScreen key.Binding
 	help            key.Binding
 	suspend         key.Binding
 }
@@ -72,7 +71,6 @@ func (k keymap) FullHelp() [][]key.Binding {
 		{k.create, k.edit, k.remove, k.strikeThrough, k.up, k.down},
 		{k.firstStart,
 			k.switchWatch,
-			k.toggleAltScreen,
 			k.help,
 			k.quit,
 			k.suspend,
@@ -123,10 +121,6 @@ func initialModel() Model {
 		quit: key.NewBinding(
 			key.WithKeys("q", "ctrl+c"),
 			key.WithHelp("q/ctrl+c", "quit"),
-		),
-		toggleAltScreen: key.NewBinding(
-			key.WithKeys("f"),
-			key.WithHelp("f", "toggle alt screen"),
 		),
 		help: key.NewBinding(
 			key.WithKeys("?"),
@@ -244,14 +238,6 @@ func (m Model) handleNormalMode(msg tea.KeyMsg) (Model, tea.Cmd) {
 		}
 	case key.Matches(msg, m.keymap.strikeThrough):
 		m.todos[m.cursor].stricken = !m.todos[m.cursor].stricken
-	case key.Matches(msg, m.keymap.toggleAltScreen):
-		if m.altScreen {
-			m.altScreen = false
-			return m, tea.ExitAltScreen
-		} else {
-			m.altScreen = true
-			return m, tea.EnterAltScreen
-		}
 	}
 
 	return m, nil
