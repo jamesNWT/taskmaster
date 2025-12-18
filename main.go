@@ -34,6 +34,13 @@ type Model struct {
 	width       int
 }
 
+const (
+	todoWidthMargin = 10
+	minTodoWidth    = 20
+	defaultWidth    = 80
+	maxCharLimit    = 256
+)
+
 // keymap
 type keymap struct {
 	edit          key.Binding
@@ -80,13 +87,21 @@ var (
 			Bold(true)
 )
 
+func (m Model) getTodoWidth() int {
+	width := m.width - todoWidthMargin
+	if width < minTodoWidth {
+		return minTodoWidth
+	}
+	return width
+}
+
 // initialModel
 func initialModel() Model {
 
 	ti := textinput.New()
 	ti.Placeholder = "todo..."
-	ti.CharLimit = 256
-	ti.Width = 50
+	ti.CharLimit = maxCharLimit
+	ti.Width = defaultWidth
 
 	keymap := keymap{
 		firstStart: key.NewBinding(
@@ -158,7 +173,7 @@ func initialModel() Model {
 		textInput: ti,
 		stricken:  make(map[int]struct{}),
 		altScreen: true,
-		width:     80,
+		width:     defaultWidth,
 	}
 
 	return m
@@ -190,9 +205,8 @@ func (m Model) handleNormalMode(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.keymap.pauseWatches.SetEnabled(false)
 		if m.focus.Running() {
 			return m, m.focus.Stop()
-		} else {
-			return m, m.rest.Stop()
 		}
+		return m, m.rest.Stop()
 	case key.Matches(msg, m.keymap.switchWatch):
 		restCmd := m.rest.Toggle()
 		focusCmd := m.focus.Toggle()
@@ -288,11 +302,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
-		todoWidth := msg.Width - 10
-		if todoWidth < 20 {
-			todoWidth = 20
-		}
+		todoWidth := m.getTodoWidth()		
 		m.textInput.Width = todoWidth
+
 	case tea.KeyMsg:
 		if m.writing {
 			m, keyCmd = m.handleWritingMode(msg)
@@ -345,11 +357,7 @@ func (m Model) View() string {
 	s += headerStyle.Render("Break time:") +" " + formatDuration(m.rest.Elapsed()+m.restOffset) + "\n"
 
 	if len(m.todos) > 0 {
-		todoWidth := m.width - 10
-		if todoWidth < 20 {
-			todoWidth = 20
-		}
-
+		todoWidth := m.getTodoWidth()
 		todoStyle := lipgloss.NewStyle().Width(todoWidth)
 		strikethroughStyle := lipgloss.NewStyle().
 			Width(todoWidth).
@@ -389,13 +397,12 @@ func (m Model) View() string {
 
 // Init
 func (m Model) Init() tea.Cmd {
-	// return m.focus.Init()
 	return nil
 }
 
 func main() {
 	if _, err := tea.NewProgram(initialModel(), tea.WithAltScreen()).Run(); err != nil {
-		fmt.Println("Something broke: ", err)
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
 }
