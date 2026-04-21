@@ -139,7 +139,7 @@ func (m Model) handleWritingMode(msg tea.KeyMsg) (Model, tea.Cmd) {
 		if m.editing {
 			m.todos[m.cursor].text = m.textInput.Value()
 			m.editing = false
-		} else {
+		} else if m.textInput.Value() != "" {
 			m.todos = append(m.todos, Todo{m.textInput.Value(), false})
 		}
 		m.textInput.SetValue("")
